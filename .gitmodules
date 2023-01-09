@@ -1,3 +1,6 @@
 [submodule "OnePose"]
 	path = OnePose
 	url = https://github.com/zju3dv/OnePose.git
+[submodule "ROS-Unity-OpenCR1.0"]
+	path = ROS-Unity-OpenCR1.0
+	url = https://github.com/vitvasin/ROS-Unity-OpenCR1.0.git
