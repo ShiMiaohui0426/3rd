@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-import pyfakewebcam
+#import pyfakewebcam
 import pyvirtualcam
 class Point():
     def __init__(self, x, y):
@@ -17,12 +17,14 @@ def IsPointInMatrix(p1, p2, p3, p4, p):
 print('OpenCV Version:' + cv2.__version__)
 fource = cv2.VideoWriter_fourcc(*'DIVX')
 cap = cv2.VideoCapture(0)  # cv2.VideoCapture(0)代表调取摄像头资源，其中0代表电脑摄像头，1代表外接摄像头(usb摄像头)
+'''
 detector = cv2.wechat_qrcode_WeChatQRCode()
 depro = 'QRModel/detect.prototxt'
 decaf = 'QRModel/detect.caffemodel'
 srpro = 'QRModel/sr.prototxt'
 srcaf = 'QRModel/sr.caffemodel'
 detector = cv2.wechat_qrcode_WeChatQRCode(depro, decaf, srpro, srcaf)
+'''
 time = int(1)
 
 resulte = cv2.VideoWriter('demo.mp4', fource, 30.0, (640, 480))
@@ -45,9 +47,10 @@ while True:
     #frame = cv2.flip(frame, flipCode)
     center = (int(frame.shape[1]/2), int(frame.shape[0]/2))
     cv2.circle(frame, center, 50, (255, 0, 0), -1)
-    res, points = detector.detectAndDecode(frame)
+    #res, points = detector.detectAndDecode(frame)
     #qrcodes, points = detector.detectAndDecode(frame)
     LeastOneCatch = False
+    '''
     i = 0
     for pos in points:
         color = (0, 0, 255)
@@ -85,7 +88,7 @@ while True:
         time = 0
 
     # print('qrcodes: ', qrcodes)
-
+'''
     cv2.imshow("Video", frame)
     #print(type(frame))
     #resulte.write(frame)
