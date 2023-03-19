@@ -6,14 +6,15 @@ import random
 #print(rs.__version__)
 # Create a context object. This object owns the handles to all connected realsense devices
 pipeline = rs.pipeline()
-
+'''
 config = rs.config()
 config.enable_stream(rs.stream.color, 640,480, rs.format.rgb8, 30)
 config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
 
 
 pf = pipeline.start(config)
-
+'''
+pf = pipeline.start()
 print(f"device: {pf.get_device()}")
 print(f"depth_sensor: {pf.get_device().first_depth_sensor()}")
 print(f"depth_scale: {pf.get_device().first_depth_sensor().get_depth_scale()}")
