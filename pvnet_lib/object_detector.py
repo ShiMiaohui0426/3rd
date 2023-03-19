@@ -268,7 +268,7 @@ def multitest_thread(model_names):
     model_name = 'duck'
     i = 0
     imgs = []
-    while i < 100:
+    while i < 1000:
         img = Image.open('/home/ros//clean-pvnet/data/linemod/' + model_name + '/JPEGImages/' + "%06d" % i + '.jpg')
         imgs.append(img)
         i = i + 1
@@ -288,7 +288,7 @@ def multitest_thread(model_names):
     time_end = time.time()  # 记录结束时间
     time_sum = time_end - time_start  # 计算的时间差为程序的执行时间，单位为秒/s
     print('use time ' + '%f' % (time_sum * 1000 / len(imgs)) + 'ms/img')
-    i = 100
+    i = 1000
     img = Image.open('/home/ros//clean-pvnet/data/linemod/' + model_name + '/JPEGImages/' + "%06d" % i + '.jpg')
     patches = []
     for detector in detectors:
@@ -320,5 +320,6 @@ def multitest_thread(model_names):
 
 if __name__ == '__main__':
     # single_test()
-    multitest(['cat', 'can', 'duck'])
+    #multitest(['cat', 'can', 'duck'])
+    multitest(['cat'])
 # multitest_thread(['cat', 'can', 'duck'])

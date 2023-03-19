@@ -64,12 +64,15 @@ class realsensecamera:
 
 
 
+
 if __name__ == '__main__':
     cmr = realsensecamera()
     cmr.start()
     try:
         while True:
+            cmr.getFrame()
             cv2.imshow("RGB", cmr.getRGBFrame())
+            print(cmr.getGyroFrame())
             # cv2.imshow("Depth",cmr.getDepthFrame())
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break

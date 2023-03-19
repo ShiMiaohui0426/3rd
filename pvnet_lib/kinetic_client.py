@@ -32,7 +32,7 @@ detector = object_detector('cat')
 import time
 import math
 
-rate = 4
+rate = 7
 
 
 class state_machine:
@@ -124,6 +124,13 @@ class state_machine:
             self.rs_y = 0
             o_pose = detector.get_center_3d()
             self.obj_pose = [o_pose[0][0], o_pose[0][1], o_pose[0][2]]
+            self.send_pose(self.obj_pose)
+
+    def send_pose(self,pose):
+        data = {'position': {'x': pose[0], 'y': pose[1], 'z': pose[2]},
+                'command': 'set_grasp_target'}
+        jdata = json.dumps(data)
+        self.cnt.send_data(jdata)
 
     def confirm(self):
 
@@ -157,8 +164,7 @@ class state_machine:
             self.counter = 1
             self.state = 'wait_operation'
         if L_confirm < 50:
-            data = {'position': {'x': self.obj_pose[0], 'y': self.obj_pose[1], 'z': self.obj_pose[2]},
-                    'command': 'start_grasp'}
+            data = {'command': 'start_grasp'}
             jdata = json.dumps(data)
             self.cnt.send_data(jdata)
             self.counter = 0

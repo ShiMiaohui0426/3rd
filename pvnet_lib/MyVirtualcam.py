@@ -4,7 +4,7 @@ import cv2
 
 class vcam:
     def __init__(self):
-        self.cam = pyvirtualcam.Camera(width=640, height=480, fps=20, device='/dev/video2')
+        self.cam = pyvirtualcam.Camera(width=640, height=480, fps=20, device='/dev/video8')
         print(f'Using virtual camera: {self.cam.device}')
 
     def disp_image(self, img):
