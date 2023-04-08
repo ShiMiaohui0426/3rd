@@ -116,7 +116,7 @@ class state_machine:
         self.l_center = center
         m_vcam.disp_image(img)
 
-        if self.counter > 20:
+        if self.counter > 30:
             self.counter = 0
             self.state = 'confirm'
             self.counter = time.time()
