@@ -2,21 +2,49 @@ from pymycobot import MyCobotSocket
 import time
 from pymycobot.genre import Angle
 from pymycobot.mycobot import MyCobot
+import threading
+
 def wait_moving(robot):
+    time.sleep(0.05)
     while robot.is_moving():
         time.sleep(0.05)
 
 
 mc = MyCobot("/dev/ttyACM0", 115200)
 
-#mc = MyCobotSocket("192.168.1.5", 9000)
-
-mc.send_angles([0, 0, 0, 0, 0, 0], 20)
-time.sleep(0.1)
+# mc = MyCobotSocket("192.168.1.5", 9000)
+speed = 20
+mc.send_angles([0, 0, 0, 0, 0, 0], speed)
+mc.set_encoder(7, 2000)
 wait_moving(mc)
 
-mc.send_angles([-90, -30, -45, -15, 0, 0], 50)
+mc.send_angles([-90, 0, 0, 0, 0, 0], speed)
 wait_moving(mc)
+time.sleep(1)
+def grasp_thread_task():
+    tar=[74, -265, 200, -179, -1, -179]
+    top=[74, -265, 250, -179, -1, -179]
+    mc.send_coords(tar, speed, 0)
+    wait_moving(mc)
+    mc.send_coords(top, speed, 0)
+    wait_moving(mc)
+    mc.set_encoder(7, 0)
+    time.sleep(2)
+    wait_moving(mc)
+    mc.send_coords(top, speed, 0)
+    wait_moving(mc)
+    mc.send_angles([0, 0, 0, 0, 0, 0], speed)
+    wait_moving(mc)
+    mc.send_angles([90, -45, 0, 0, 0, 0], speed)
+    wait_moving(mc)
+    mc.set_encoder(7, 1800)
+    time.sleep(2)
+    wait_moving(mc)
+    mc.send_angles([0, 0, 0, 0, 0, 0], speed)
+    wait_moving(mc)
+
+grasp_thread = threading.Thread(target=grasp_thread_task)
+grasp_thread.start()
 '''
 print('start test')
 time_start = time.time()  # 记录开始时间
@@ -31,13 +59,4 @@ time_sum = time_end - time_start  # 计算的时间差为程序的执行时间�
 print(time_sum)
 print('stop test')
 '''
-time.sleep(1)
-coords = mc.get_coords()
-print(coords)
-time.sleep(1)
-mc.send_coords([-50, -223.6, 212.1, -177.36, -0.79, -179.68], 80, 1)
-wait_moving(mc)
-coords = mc.get_coords()
-print(coords)
-mc.set_encoder(7, 2000)
-wait_moving(mc)
+
