@@ -33,10 +33,12 @@ import time
 import math
 
 rate = 7
+k = 50
 
 
 class state_machine:
     def __init__(self):
+        self.obj_pose = None
         self.rs_y = None
         self.rs_x = None
         self.l_center = None
@@ -93,41 +95,54 @@ class state_machine:
         center = detector.get_center_2d()
         corner_2d_pred = detector.get_corner_2d()
         imgcenter = (int(img.shape[1] / 2), int(img.shape[0] / 2))
-        cv2.circle(img, imgcenter, self.counter, (255, 0, 0), -1)
+        cv2.circle(img, imgcenter, round(self.counter * 20 / k), (255, 0, 0), -1)
         cv2.circle(img, imgcenter, 20, (255, 0, 0), 0)
         if (0 < center[0][0] < 640) & (0 < center[0][1] < 480):
             temp = center[0] - corner_2d_pred[[2]]
             R = round(0.6 * math.hypot(temp[0][0], temp[0][1]))
+            if R < 40:
+                R = 40
+
             cv2.polylines(img, [np.array(corner_2d_pred[[0, 1, 3, 2, 0, 4, 6, 2]], np.int)], True, (98, 9, 11), 1)
             cv2.polylines(img, [np.array(corner_2d_pred[[5, 4, 6, 7, 5, 1, 3, 7]], np.int)], True, (98, 9, 11), 1)
 
             L = round(math.hypot(imgcenter[0] - center[0][0], imgcenter[1] - center[0][1]))
+
+            # print('x:', o_pose[0][0], 'y:', o_pose[0][1], 'z:', o_pose[0][2])
             if L < R:
                 self.counter = self.counter + 1
+                o_pose = detector.get_center_3d()
+                o_quaternion = detector.get_quaternion()
                 cv2.circle(img, (round(center[0][0]), round(center[0][1])), R, (0, 255, 0), 3)
+
+                self.obj_pose = [o_pose[0][0], o_pose[0][1], o_pose[0][2], o_quaternion[0], o_quaternion[1],
+                                 o_quaternion[2], o_quaternion[3]]
+                self.send_pose(self.obj_pose)
             else:
+                if self.counter > 1:
+                    data = {'command': 'clear_grasp_target'}
+                    jdata = json.dumps(data)
+                    self.cnt.send_data(jdata)
                 self.counter = 1
-                cv2.circle(img, (round(center[0][0]), round(center[0][1])), R, (255, 0, 0), 3)
+                cv2.circle(img, (round(center[0][0]), round(center[0][1])), round(R), (255, 0, 0), 3)
         else:
             center = self.l_center + (self.l_center - self.p_center) * 0.5
-            cv2.circle(img, (round(center[0][0]), round(center[0][1])), 20, (255, 0, 0), 3)
+            cv2.circle(img, (round(center[0][0]), round(center[0][1])), round(20), (255, 0, 0), 3)
 
         self.p_center = self.l_center
         self.l_center = center
         m_vcam.disp_image(img)
 
-        if self.counter > 30:
+        if self.counter > k:
             self.counter = 0
             self.state = 'confirm'
             self.counter = time.time()
             self.rs_x = 0
             self.rs_y = 0
-            o_pose = detector.get_center_3d()
-            self.obj_pose = [o_pose[0][0], o_pose[0][1], o_pose[0][2]]
-            self.send_pose(self.obj_pose)
 
-    def send_pose(self,pose):
+    def send_pose(self, pose):
         data = {'position': {'x': pose[0], 'y': pose[1], 'z': pose[2]},
+                'orientation': {'x': pose[3], 'y': pose[4], 'z': pose[5], 'w': pose[6]},
                 'command': 'set_grasp_target'}
         jdata = json.dumps(data)
         self.cnt.send_data(jdata)
@@ -163,6 +178,9 @@ class state_machine:
         if L_cancel < 50:
             self.counter = 1
             self.state = 'wait_operation'
+            data = {'command': 'clear_grasp_target'}
+            jdata = json.dumps(data)
+            self.cnt.send_data(jdata)
         if L_confirm < 50:
             data = {'command': 'start_grasp'}
             jdata = json.dumps(data)
@@ -187,7 +205,7 @@ class state_machine:
             cv2.putText(combine, text, center, cv2.FONT_HERSHEY_PLAIN, 2.0, (0, 0, 255), 2)
             m_vcam.disp_image(combine)
 
-            if self.counter > 10:
+            if self.counter > 50:
                 self.counter = 0
                 self.cnt.send_data(jdata)
             self.counter = self.counter + 1

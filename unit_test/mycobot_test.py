@@ -10,21 +10,23 @@ def wait_moving(robot):
         time.sleep(0.05)
 
 
-mc = MyCobot("/dev/ttyACM0", 115200)
+# mc = MyCobot("/dev/ttyACM0", 115200)
 
-# mc = MyCobotSocket("192.168.1.5", 9000)
+mc = MyCobotSocket("192.168.1.3", 9000)
 speed = 20
 mc.send_angles([0, 0, 0, 0, 0, 0], speed)
-mc.set_encoder(7, 2000)
+mc.set_encoder(7, 0)
 wait_moving(mc)
-
-mc.send_angles([-90, 0, 0, 0, 0, 0], speed)
+'''
+mc.send_angles([-90, -30, 0, 0, 0, 0], 80)
+coords=mc.get_coords()
+print(coords)
 wait_moving(mc)
 time.sleep(1)
 def grasp_thread_task():
-    tar=[74, -265, 200, -179, -1, -179]
-    top=[74, -265, 250, -179, -1, -179]
-    mc.send_coords(tar, speed, 0)
+    tar=[103, -129, 165, -179, -1, 65]
+    top=[103, -129, 155, -179, -1, 65-180]
+    mc.send_coords(top, speed, 0)
     wait_moving(mc)
     mc.send_coords(top, speed, 0)
     wait_moving(mc)
@@ -45,6 +47,7 @@ def grasp_thread_task():
 
 grasp_thread = threading.Thread(target=grasp_thread_task)
 grasp_thread.start()
+'''
 '''
 print('start test')
 time_start = time.time()  # 记录开始时间

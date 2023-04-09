@@ -16,6 +16,7 @@ import cv2
 
 import threading
 from queue import Queue
+import math
 
 
 def get_model_corners(model):
@@ -33,6 +34,29 @@ def get_model_corners(model):
         [max_x, max_y, max_z],
     ])
     return corners_3d
+
+
+def rotation_matrix_to_quaternion(matrix):
+    qw = math.sqrt(1 + matrix[0][0] + matrix[1][1] + matrix[2][2]) / 2
+    qx = (matrix[2][1] - matrix[1][2]) / (4 * qw)
+    qy = (matrix[0][2] - matrix[2][0]) / (4 * qw)
+    qz = (matrix[1][0] - matrix[0][1]) / (4 * qw)
+    return [qx, qy, qz, qw]
+
+
+def quaternion_to_euler(x, y, z, w):
+    ysqr = y * y
+    t0 = -2.0 * (ysqr + z * z) + 1.0
+    t1 = +2.0 * (x * y + w * z)
+    t2 = -2.0 * (x * z - w * y)
+    t3 = +2.0 * (y * z + w * x)
+    t4 = -2.0 * (x * x + ysqr) + 1.0
+    t2 = 1 if t2 > 1 else t2
+    t2 = -1 if t2 < -1 else t2
+    roll = math.atan2(t3, t4)
+    pitch = math.asin(t2)
+    yaw = math.atan2(t1, t0)
+    return [roll, pitch, yaw]
 
 
 def read_ply_points(ply_path):
@@ -112,9 +136,9 @@ class object_detector:
                       [0, 573.57043, 242.04899],
                       [0, 0, 1, ]])
         '''
-        K = np.array([[602.51, 0,         332.199],
-                      [0,       602.569, 236.664],
-                      [0,       0,          1, ]])
+        K = np.array([[602.51, 0, 332.199],
+                      [0, 602.569, 236.664],
+                      [0, 0, 1, ]])
 
         # draw box
 
@@ -175,6 +199,15 @@ class object_detector:
         center_3d_pred = np.dot(self.center_3d, self.pose_pred[:, :3].T) + self.pose_pred[:, 3:].T
         return center_3d_pred
 
+    def get_quaternion(self):
+        quaternion = rotation_matrix_to_quaternion(self.pose_pred[:, :3])
+        return quaternion
+
+    def get_rpy(self):
+        q = self.get_quaternion()
+        rpy = quaternion_to_euler(q[0], q[1], q[2], q[3])
+        return rpy
+
     def get_patches(self):
         corner_2d_pred = self.get_corner_2d()
         center_2d_pred = pvnet_pose_utils.project(self.center_3d, self.K, self.pose_pred)
@@ -183,15 +216,15 @@ class object_detector:
                          Polygon(xy=corner_2d_pred[[5, 4, 6, 7, 5, 1, 3, 7]], fill=False, linewidth=1, edgecolor='b'),
                          Circle(xy=(center_2d_pred[0][0], center_2d_pred[0][1]), radius=20, alpha=1)]
         else:
-            m_patches=[]
+            m_patches = []
         return m_patches
 
 
 def single_test():
-    model_name = 'cat'
+    model_name = 'ape'
     cat_detector = object_detector(model_name)
     imgs = []
-    i = 40
+    i = 0
     while i < 41:
         img = Image.open('/home/ros//clean-pvnet/data/linemod/' + model_name + '/JPEGImages/' + "%06d" % i + '.jpg')
         imgs.append(img)
@@ -219,45 +252,47 @@ def multitest(model_names):
     model_name = 'duck'
     i = 0
     imgs = []
-    while i < 100:
+    while i < 150:
         img = Image.open('/home/ros//clean-pvnet/data/linemod/' + model_name + '/JPEGImages/' + "%06d" % i + '.jpg')
         imgs.append(img)
         i = i + 1
     import time
 
     time_start = time.time()  # 记录开始时间
+
     # function()   执行的程序
+    def show(img):
+        patches = []
+        for detector in detectors:
+            v_patches = detector.get_patches()
+            for v_patche in v_patches:
+                patches.append(v_patche)
+        fig, ax = plt.subplots(1)
+        plt.axis('off')
+        ax.imshow(img)
+        for m_patche in patches:
+            ax.add_patch(m_patche)
+        canvas = fig.canvas
+        buffer = io.BytesIO()
+        canvas.print_png(buffer)
+        data = buffer.getvalue()
+        buffer.write(data)
+        img = Image.open(buffer)
+        img = cv2.cvtColor(np.asarray(img), cv2.COLOR_RGB2BGR)
+        while True:
+            cv2.imshow('image', img)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
 
     for img in imgs:
         for detector in detectors:
             detector.find_obj(img)
-
+            show(img)
     time_end = time.time()  # 记录结束时间
     time_sum = time_end - time_start  # 计算的时间差为程序的执行时间，单位为秒/s
     print('use time ' + '%f' % (time_sum * 1000 / len(imgs)) + 'ms/img')
     i = i - 1
     img = Image.open('/home/ros//clean-pvnet/data/linemod/' + model_name + '/JPEGImages/' + "%06d" % i + '.jpg')
-    patches = []
-    for detector in detectors:
-        v_patches = detector.get_patches()
-        for v_patche in v_patches:
-            patches.append(v_patche)
-    fig, ax = plt.subplots(1)
-    plt.axis('off')
-    ax.imshow(img)
-    for m_patche in patches:
-        ax.add_patch(m_patche)
-    canvas = fig.canvas
-    buffer = io.BytesIO()
-    canvas.print_png(buffer)
-    data = buffer.getvalue()
-    buffer.write(data)
-    img = Image.open(buffer)
-    img = cv2.cvtColor(np.asarray(img), cv2.COLOR_RGB2BGR)
-    while True:
-        cv2.imshow('image', img)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
 
 
 def multitest_thread(model_names):
@@ -320,6 +355,6 @@ def multitest_thread(model_names):
 
 if __name__ == '__main__':
     # single_test()
-    #multitest(['cat', 'can', 'duck'])
-    multitest(['cat'])
+    # multitest(['cat', 'can', 'duck','ape'])
+    multitest(['ape'])
 # multitest_thread(['cat', 'can', 'duck'])
