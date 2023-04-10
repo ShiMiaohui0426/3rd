@@ -27,7 +27,8 @@ m_rcam = realsensecamera()
 
 m_vcam = vcam()
 # qrcoder = cv2.QRCodeDetector()
-detector = object_detector('cat')
+detector = object_detector('duck')
+# note duck rpy's y plus -90
 
 import time
 import math
