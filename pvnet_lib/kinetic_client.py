@@ -75,6 +75,7 @@ class state_machine:
         self.p_center = center
         self.l_center = center
         self.counter = 1
+    
 
     def wait_operation(self):
         #        center = (int(frame.shape[1] / 2), int(frame.shape[0] / 2))
@@ -149,8 +150,9 @@ class state_machine:
 
         cv2.circle(imgZero, cancel, 50, (255, 0, 0), 3)
 
-        cv2.circle(img, imgcenter, 5, (255, 0, 0), -1)
+        
         combine = cv2.addWeighted(img, 0.5, imgZero, 0.5, 0)
+        cv2.circle(combine, imgcenter, 5, (255, 0, 0), -1)
 
         text = 'Yes'
         cv2.putText(combine, text, confirm, cv2.FONT_HERSHEY_PLAIN, 2.0, (0, 0, 255), 2)
@@ -170,6 +172,15 @@ class state_machine:
             self.counter = 0
             self.state = 'wait_grasp_done'
         # print('confirm')
+
+    #旋转矩阵转四元数
+    def rotationMatrixToQuaternion(R):
+        q = np.zeros((4, 1))
+        q[0] = math.sqrt(1 + R[0, 0] + R[1, 1] + R[2, 2]) / 2
+        q[1] = (R[2, 1] - R[1, 2]) / (4 * q[0])
+        q[2] = (R[0, 2] - R[2, 0]) / (4 * q[0])
+        q[3] = (R[1, 0] - R[0, 1]) / (4 * q[0])
+        return q
 
     def wait_grasp_done(self):
         print('wait_grasp_done')
