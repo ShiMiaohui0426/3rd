@@ -1,2 +1,9 @@
 pyvirtualcam
 pyrealsense2
+cffi
+yacs
+open3d
+opencv-python
+scikit-image
+plyfile
+

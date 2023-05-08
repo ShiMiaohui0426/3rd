@@ -95,6 +95,7 @@ class object_detector:
 
         self.find_thread = threading.Thread(target=self.find_obj_thread)
         self.find_queue = Queue(1024)
+        self.last_corner_2d_pred=None
 
     def start_thread(self):
         self.find_thread.start()
@@ -118,14 +119,14 @@ class object_detector:
         # prediction of 2d point
 
         # 3d point (measured)
-        data_root = '/home/ros/clean-pvnet/data/linemod/' + model_name
+        data_root = '/home/iwata/clean-pvnet/data/linemod/' + model_name
 
         model_path = os.path.join(data_root, model_name + '.ply')
 
         renderer = OpenGLRenderer(model_path)
         model = renderer.model['pts'] / 1000
 
-        farthest20 = np.loadtxt('/home/ros/clean-pvnet/data/linemod/' + model_name + '/farthest20.txt')
+        farthest20 = np.loadtxt('/home/iwata/clean-pvnet/data/linemod/' + model_name + '/farthest20.txt')
         kpt_3d = farthest20[0:8]
         mean_3d = np.mean(kpt_3d, axis=0)
         kpt_3d = np.r_[kpt_3d, [mean_3d]]
@@ -152,16 +153,25 @@ class object_detector:
         img = np.array(img)
         inp = transform(img).unsqueeze(0).to("cuda")
         output = self.network(inp)
+        last_pose_pred=self.pose_pred
 
         # prediction of 6d-pose
         self.kpt_2d = output['kpt_2d'][0].detach().cpu().numpy()
         self.pose_pred = pvnet_pose_utils.pnp(self.kpt_3d, self.kpt_2d, self.K)
+        center = self.get_center_2d()
+        if not (0 < center[0][0] < 640) & (0 < center[0][1] < 480):
+            if last_pose_pred is not None:
+                self.pose_pred=last_pose_pred
         '''
         RT = self.pose_pred
         xyz = np.dot(self.corner_3d, RT[:, :3].T) + RT[:, 3:].T
         center_3d_pred = np.mean(xyz, axis=0)
         return center_3d_pred.tolist()
         '''
+    def draw3Dbox(self,img,color=(98, 9, 11)):
+        corner_2d_pred = self.get_corner_2d()
+        cv2.polylines(img, [np.array(corner_2d_pred[[0, 1, 3, 2, 0, 4, 6, 2]], np.int)], True, color, 1)
+        cv2.polylines(img, [np.array(corner_2d_pred[[5, 4, 6, 7, 5, 1, 3, 7]], np.int)], True, color, 1)
 
     def visualize(self, img, isShow=False):
         corner_2d_pred = self.get_corner_2d()
@@ -252,12 +262,18 @@ def multitest(model_names):
     model_name = 'duck'
     i = 0
     imgs = []
-    while i < 150:
-        img = Image.open('/home/ros//clean-pvnet/data/linemod/' + model_name + '/JPEGImages/' + "%06d" % i + '.jpg')
+    from ultralytics import YOLO
+    model = YOLO("/home/iwata/yolov8/runs/detect/train/weights/best.pt")
+
+    while i < 1000:
+        img = Image.open('/home/iwata/clean-pvnet/data/linemod/' + model_name + '/JPEGImages/' + "%06d" % i + '.jpg')
         imgs.append(img)
         i = i + 1
     import time
-
+    img = Image.open('/home/iwata/clean-pvnet/data/linemod/' + model_name + '/JPEGImages/' + "%06d" % 0 + '.jpg')
+    for detector in detectors:
+        detector.find_obj(img)
+        results = model(img, stream=True)
     time_start = time.time()  # 记录开始时间
 
     # function()   执行的程序
@@ -287,12 +303,14 @@ def multitest(model_names):
     for img in imgs:
         for detector in detectors:
             detector.find_obj(img)
-            show(img)
+            results = model(img)
+            # results = model(img, stream=True)
+            # show(img)
     time_end = time.time()  # 记录结束时间
     time_sum = time_end - time_start  # 计算的时间差为程序的执行时间，单位为秒/s
     print('use time ' + '%f' % (time_sum * 1000 / len(imgs)) + 'ms/img')
     i = i - 1
-    img = Image.open('/home/ros//clean-pvnet/data/linemod/' + model_name + '/JPEGImages/' + "%06d" % i + '.jpg')
+    img = Image.open('/home/iwata/clean-pvnet/data/linemod/' + model_name + '/JPEGImages/' + "%06d" % i + '.jpg')
 
 
 def multitest_thread(model_names):

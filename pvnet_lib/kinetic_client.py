@@ -20,6 +20,9 @@ from numpy import integer
 import cv2
 import numpy as np
 
+
+
+
 # m_detectors = load_estimators(['cat', 'can', 'duck'])
 
 m_rcam = realsensecamera()
@@ -27,7 +30,19 @@ m_rcam = realsensecamera()
 
 m_vcam = vcam()
 # qrcoder = cv2.QRCodeDetector()
-detector = object_detector('duck')
+from ultralytics import YOLO
+
+yolomodel = YOLO("/home/iwata/yolov8/runs/detect/train9/weights/last.pt")
+#detector = object_detector('cat')
+cat_detector = object_detector('cat')
+ape_detector = object_detector('ape')
+duck_detector = object_detector('duck')
+detectors = {
+            'cat': cat_detector,
+            'ape': ape_detector,
+            'duck': duck_detector,
+        }
+obj_classes=['ape', 'cat', 'duck']
 # note duck rpy's y plus -90
 
 import time
@@ -37,13 +52,16 @@ rate = 7
 k = 50
 
 
+
+
+fourcc = cv2.VideoWriter_fourcc(*'XVID')  # 视频编解码器
+
+out = cv2.VideoWriter('demo.avi', fourcc, 30, (640, 480))  # 写入视频
 class state_machine:
     def __init__(self):
         self.obj_pose = None
         self.rs_y = None
         self.rs_x = None
-        self.l_center = None
-        self.p_center = None
         self.jdata = None
         self.data = None
         self.case = {
@@ -56,6 +74,8 @@ class state_machine:
         self.cnt = kinetic_tcp_client()
         self.state = 'generate_fake_cmr'
         self.counter = 0
+        self.last_select_flag = False
+        self.last_select_obj=None
 
     def switch_auto(self):
         method = self.case.get(self.state)
@@ -73,74 +93,82 @@ class state_machine:
         self.cnt.start_rec()
         self.state = 'wait_operation'
         img = m_rcam.getRGBFrame()
-        detector.find_obj(img)
-        center = detector.get_center_2d()
-        self.p_center = center
-        self.l_center = center
-        self.counter = 1
     
 
     def wait_operation(self):
-        #        center = (int(frame.shape[1] / 2), int(frame.shape[0] / 2))
-        #        cv2.circle(frame, center, 50, (255, 0, 0), -1)
-
-        '''
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        m_vcam.disp_image(img)
-        # 解码
-        
-        codeinfo, points, straight_qrcode = qrcoder.detectAndDecode(gray)
-        '''
         m_rcam.getFrame()
         img = m_rcam.getRGBFrame()
-        detector.find_obj(img)
-        center = detector.get_center_2d()
-        corner_2d_pred = detector.get_corner_2d()
+        #
         imgcenter = (int(img.shape[1] / 2), int(img.shape[0] / 2))
         cv2.circle(img, imgcenter, round(self.counter * 20 / k), (255, 0, 0), -1)
         cv2.circle(img, imgcenter, 20, (255, 0, 0), 0)
-        if (0 < center[0][0] < 640) & (0 < center[0][1] < 480):
-            temp = center[0] - corner_2d_pred[[2]]
-            R = round(0.6 * math.hypot(temp[0][0], temp[0][1]))
-            if R < 40:
-                R = 40
-
-            cv2.polylines(img, [np.array(corner_2d_pred[[0, 1, 3, 2, 0, 4, 6, 2]], np.int)], True, (98, 9, 11), 1)
-            cv2.polylines(img, [np.array(corner_2d_pred[[5, 4, 6, 7, 5, 1, 3, 7]], np.int)], True, (98, 9, 11), 1)
-
+        R=40
+        # yoloresults = yoloresults
+        if not self.last_select_flag:
+            yoloresults = yolomodel(img, stream=True)
+            select_flag = False
+            for result in yoloresults:
+                boxes = result.boxes
+                for box in boxes:
+                    yolo_center_x=(box.xyxy[0][0]+box.xyxy[0][2])/2
+                    yolo_center_y=(box.xyxy[0][1]+box.xyxy[0][3])/2
+                    
+                    L = round(math.hypot(imgcenter[0] - yolo_center_x, imgcenter[1] - yolo_center_y))
+                    if L < R:
+                        self.last_select_obj=obj_classes[int(box.cls.item())]
+                        detector=detectors[self.last_select_obj]
+                        detector.find_obj(img)
+                        #center = detector.get_center_2d()
+                        #corner_2d_pred = detector.get_corner_2d()
+                        
+                        o_pose = detector.get_center_3d()
+                        o_quaternion = detector.get_quaternion()
+                        cv2.circle(img, (round(int(yolo_center_x)), round(int(yolo_center_y))), 40, (0, 255, 255), 3)
+                        detector.draw3Dbox(img)
+                        self.obj_pose = [o_pose[0][0], o_pose[0][1], o_pose[0][2], o_quaternion[0], o_quaternion[1],o_quaternion[2], o_quaternion[3]]
+                        select_flag = True
+                    else:
+                        cv2.circle(img, (round(int(yolo_center_x)), round(int(yolo_center_y))), 40, (0, 0, 255), 3)
+                        cv2.rectangle(img, (round(int(box.xyxy[0][0])), round(int(box.xyxy[0][1]))), (round(int(box.xyxy[0][2])), round(int(box.xyxy[0][3]))), (0, 255, 0), 2)
+        else:
+            detector=detectors[self.last_select_obj]
+            detector.find_obj(img)
+            center = detector.get_center_2d()
             L = round(math.hypot(imgcenter[0] - center[0][0], imgcenter[1] - center[0][1]))
-
             # print('x:', o_pose[0][0], 'y:', o_pose[0][1], 'z:', o_pose[0][2])
+            detector.draw3Dbox(img)
+            cv2.circle(img, (round(center[0][0]), round(center[0][1])), R, (0, 0, 255), 3)
             if L < R:
                 self.counter = self.counter + 1
                 o_pose = detector.get_center_3d()
                 o_quaternion = detector.get_quaternion()
                 cv2.circle(img, (round(center[0][0]), round(center[0][1])), R, (0, 255, 0), 3)
 
-                self.obj_pose = [o_pose[0][0], o_pose[0][1], o_pose[0][2], o_quaternion[0], o_quaternion[1],
-                                 o_quaternion[2], o_quaternion[3]]
-                self.send_pose(self.obj_pose)
+                self.obj_pose = [o_pose[0][0], o_pose[0][1], o_pose[0][2], o_quaternion[0], o_quaternion[1],o_quaternion[2], o_quaternion[3]]
+                select_flag = True
             else:
-                if self.counter > 1:
+                select_flag = False
+
+        if select_flag == True:
+            self.counter = self.counter + 1
+            self.send_pose(self.obj_pose)
+        else:
+            if self.counter > 1:
                     data = {'command': 'clear_grasp_target'}
                     jdata = json.dumps(data)
                     self.cnt.send_data(jdata)
-                self.counter = 1
-                cv2.circle(img, (round(center[0][0]), round(center[0][1])), round(R), (255, 0, 0), 3)
-        else:
-            center = self.l_center + (self.l_center - self.p_center) * 0.5
-            cv2.circle(img, (round(center[0][0]), round(center[0][1])), round(20), (255, 0, 0), 3)
-
-        self.p_center = self.l_center
-        self.l_center = center
+                    self.counter = 0
+        self.last_select_flag = select_flag
+        out.write(img)  # 写入帧
         m_vcam.disp_image(img)
-
+        
         if self.counter > k:
             self.counter = 0
             self.state = 'confirm'
             self.counter = time.time()
             self.rs_x = 0
             self.rs_y = 0
+            self.last_select_flag = False
 
     def send_pose(self, pose):
         data = {'position': {'x': pose[0], 'y': pose[1], 'z': pose[2]},
@@ -174,6 +202,7 @@ class state_machine:
         cv2.putText(combine, text, confirm, cv2.FONT_HERSHEY_PLAIN, 2.0, (0, 0, 255), 2)
         text = 'No'
         cv2.putText(combine, text, cancel, cv2.FONT_HERSHEY_PLAIN, 2.0, (0, 0, 255), 2)
+        out.write(combine)  # 写入帧
         m_vcam.disp_image(combine)
 
         L_cancel = round(math.hypot(imgcenter[0] - cancel[0], imgcenter[1] - cancel[1]))
@@ -215,6 +244,7 @@ class state_machine:
             combine = cv2.addWeighted(img, 0.5, imgZero, 0.5, 0)
             text = 'Wait for Grasp'
             cv2.putText(combine, text, center, cv2.FONT_HERSHEY_PLAIN, 2.0, (0, 0, 255), 2)
+            out.write(combine)  # 写入帧
             m_vcam.disp_image(combine)
 
             if self.counter > 50:
@@ -231,5 +261,10 @@ class state_machine:
 
 if __name__ == '__main__':
     m_state_machine = state_machine()
-    while True:
-        m_state_machine.switch_auto()
+    try:
+
+        while True:
+            m_state_machine.switch_auto()
+    finally:
+        out.release()
+        a=1

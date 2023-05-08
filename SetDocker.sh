@@ -1,1 +1,1 @@
-sudo docker run -d  -p 6080:80  -p 5900:5900 -p 8080:8080 -p 9090:9090 --privileged  -v /dev:/dev:rw -v /home/ros/ROS-Unity-OpenCR1.0:/root/Desktop/ROS-Unity-OpenCR1.0:rw --name q11 arvinskushwaha/ros-noetic-desktop-vnc
+sudo docker run -d  -p 6080:80  -p 5900:5900 -p 8080:8080 -p 9090:9090 --privileged  -v /dev:/dev:rw -v /home/iwata/ROS-Unity-OpenCR1.0:/root/Desktop/ROS-Unity-OpenCR1.0:rw --name q11 arvinskushwaha/ros-noetic-desktop-vnc

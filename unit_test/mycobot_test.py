@@ -15,7 +15,7 @@ def wait_moving(robot):
 mc = MyCobotSocket("192.168.1.3", 9000)
 speed = 20
 mc.send_angles([0, 0, 0, 0, 0, 0], speed)
-mc.set_encoder(7, 0)
+mc.set_encoder(7, 2200)
 wait_moving(mc)
 '''
 mc.send_angles([-90, -30, 0, 0, 0, 0], 80)
